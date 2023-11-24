@@ -30,9 +30,9 @@ bool esp_now_pairing_init(esp_now_peer_config_t *peer_config)
 
     if (err == ESP_OK && peer_config->pairingCode != 0 && peer_config->channel != 0)
     {
-        ESP_LOGV(TAG, "Peer config found: MAC = %02x:%02x:%02x:%02x:%02x:%02x, Channel = %d", MAC2STR(peer_config->macAddress), peer_config->channel);
-        ESP_LOGV(TAG, "Product code: 0x%08lx", peer_config->pairingCode);
-        ESP_LOGV(TAG, "Pairing code: 0x%08lx", peer_config->productCode);
+        ESP_LOGI(TAG, "Peer config found: MAC = %02x:%02x:%02x:%02x:%02x:%02x, Channel = %d", MAC2STR(peer_config->macAddress), peer_config->channel);
+        ESP_LOGI(TAG, "Product code: 0x%08lx", peer_config->pairingCode);
+        ESP_LOGI(TAG, "Pairing code: 0x%08lx", peer_config->productCode);
 
         ESP_ERROR_CHECK(esp_wifi_set_channel(peer_config->channel, WIFI_SECOND_CHAN_NONE));
 
@@ -49,12 +49,12 @@ bool esp_now_pairing_init(esp_now_peer_config_t *peer_config)
     return false;
 }
 
-bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, uint32_t clientProductCode, esp_now_pairing_response_cb_t cb)
+bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, uint32_t clientProductCode, esp_now_pairing_response_cb_t response_cb, esp_now_pairing_scan_cb_t scan_cb )
 {
     uint32_t start_ticks = xTaskGetTickCount();
 
     g_pairing_peer_config = peer_config;
-    g_pairing_response_cb = cb;
+    g_pairing_response_cb = response_cb;
 
     wifi_country_t country = {0};
 
@@ -80,7 +80,7 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
             peerInfo.channel = 0;
             peerInfo.encrypt = false;
 
-            ESP_LOGV(TAG, "Sending pairing request on channel %d", channel);
+            ESP_LOGI(TAG, "Sending pairing request on channel %d", channel);
 
             ESP_ERROR_CHECK(esp_now_add_peer(&peerInfo));
             ESP_ERROR_CHECK(esp_now_send(serverAddress, (uint8_t *)&pairing_request, sizeof(pairing_request)));
@@ -90,6 +90,9 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
 
             if (g_paired)
                 return true;
+
+            if (scan_cb != NULL)
+                scan_cb();
         }
     }
     return false;
@@ -112,10 +115,10 @@ void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const
 
             ESP_ERROR_CHECK(esp_wifi_get_channel(&g_pairing_peer_config->channel, &second_chan));
 
-            ESP_LOGV(TAG, "Pairing response from MAC = %02x:%02x:%02x:%02x:%02x:%02x, Channel = %d", MAC2STR(g_pairing_peer_config->macAddress),
+            ESP_LOGI(TAG, "Pairing response from MAC = %02x:%02x:%02x:%02x:%02x:%02x, Channel = %d", MAC2STR(g_pairing_peer_config->macAddress),
                      g_pairing_peer_config->channel);
-            ESP_LOGV(TAG, "Product code: 0x%08lx", g_pairing_peer_config->pairingCode);
-            ESP_LOGV(TAG, "Pairing code: 0x%08lx", g_pairing_peer_config->productCode);
+            ESP_LOGI(TAG, "Product code: 0x%08lx", g_pairing_peer_config->pairingCode);
+            ESP_LOGI(TAG, "Pairing code: 0x%08lx", g_pairing_peer_config->productCode);
 
             esp_now_peer_info_t peerInfo;
             memset(&peerInfo, 0, sizeof(peerInfo));
@@ -123,7 +126,7 @@ void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const
             peerInfo.channel = 0;
             peerInfo.encrypt = false;
 
-            ESP_ERROR_CHECK(esp_now_add_peer(&peerInfo));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_now_add_peer(&peerInfo));
             ESP_ERROR_CHECK(esp_now_unregister_recv_cb());
 
             ESP_ERROR_CHECK(esp_now_pairing_write_config(g_pairing_peer_config));
@@ -132,7 +135,7 @@ void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const
         }
         else
         {
-            ESP_LOGV(TAG, "Pairing rejecte by response callback");
+            ESP_LOGV(TAG, "Pairing rejected by response callback");
         }
     }
 }
