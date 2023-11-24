@@ -1,3 +1,3 @@
-idf_component_register(SRCS "esp_now_pairing.cpp"
-                  REQUIRES nvs_flash esp_now 
+idf_component_register(SRCS "esp_now_pairing.c"
+                  REQUIRES nvs_flash esp_wifi 
                     INCLUDE_DIRS "include")
