@@ -38,13 +38,16 @@ extern "C"
     } esp_now_peer_config_t;
 
     typedef bool (*esp_now_pairing_request_cb_t)(esp_now_pairing_request_t *pairing_request);
-    typedef void (*esp_now_pairing_scan_cb_t)();
+    typedef bool (*esp_now_pairing_scan_cb_t)();
     typedef bool (*esp_now_pairing_response_cb_t)(esp_now_pairing_response_t *pairing_response);
 
     bool esp_now_pairing_init(esp_now_peer_config_t *peer_config);
     bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, uint32_t clientProductCode, esp_now_pairing_response_cb_t response_cb, esp_now_pairing_scan_cb_t scan_cb);
     bool esp_now_pairing_handler(const esp_now_recv_info_t *esp_now_info, const uint8_t *data, int data_len, uint32_t pairingCode, uint32_t serverProductCode,
                                  esp_now_pairing_request_cb_t cb);
+
+    bool esp_now_pairing_is_pairing();
+    void esp_now_pairing_abort();
 
 #ifdef __cplusplus
 }
