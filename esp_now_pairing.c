@@ -18,6 +18,7 @@ esp_now_peer_config_t *g_pairing_peer_config;
 esp_now_pairing_response_cb_t g_pairing_response_cb;
 
 bool g_paired;
+bool g_isPairing;
 
 void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const uint8_t *data, int data_len);
 
@@ -49,6 +50,16 @@ bool esp_now_pairing_init(esp_now_peer_config_t *peer_config)
     return false;
 }
 
+bool esp_now_pairing_is_pairing()
+{
+    return g_isPairing;
+}
+
+void esp_now_pairing_abort()
+{
+    g_isPairing = false;
+}
+
 bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, uint32_t clientProductCode, esp_now_pairing_response_cb_t response_cb,
                      esp_now_pairing_scan_cb_t scan_cb)
 {
@@ -58,15 +69,23 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
     g_pairing_response_cb = response_cb;
 
     wifi_country_t country = {0};
-
     esp_wifi_get_country(&country);
 
-    while (true)
+    uint8_t defaultChannel;
+    wifi_second_chan_t second_chan;
+    ESP_ERROR_CHECK(esp_wifi_get_channel(&defaultChannel, &second_chan));
+
+    g_isPairing = true;
+
+    while (g_isPairing)
     {
         for (int channel = 1; channel <= country.nchan; channel++)
         {
+            if (g_isPairing == false)
+                goto abort;
+
             if (wait_ticks != portMAX_DELAY && xTaskGetTickCount() - start_ticks > wait_ticks)
-                return false;
+                goto abort;
 
             ESP_ERROR_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
             ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_pairing_data_received));
@@ -101,6 +120,11 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
             }
         }
     }
+
+abort:
+    ESP_ERROR_CHECK(esp_wifi_set_channel(defaultChannel, WIFI_SECOND_CHAN_NONE));
+    g_isPairing = false;
+
     return false;
 }
 
@@ -132,7 +156,12 @@ void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const
             peerInfo.channel = 0;
             peerInfo.encrypt = false;
 
-            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_now_add_peer(&peerInfo));
+            if (!esp_now_is_peer_exist(peerInfo.peer_addr))
+            {
+                ESP_LOGI(TAG, "Adding peer: %02x:%02x:%02x:%02x:%02x:%02x", MAC2STR(g_pairing_peer_config->macAddress));
+                ESP_ERROR_CHECK(esp_now_add_peer(&peerInfo));
+            }
+
             ESP_ERROR_CHECK(esp_now_unregister_recv_cb());
 
             ESP_ERROR_CHECK(esp_now_pairing_write_config(g_pairing_peer_config));
@@ -149,7 +178,7 @@ void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const
 bool esp_now_pairing_handler(const esp_now_recv_info_t *esp_now_info, const uint8_t *data, int data_len, uint32_t pairingCode, uint32_t serverProductCode,
                              esp_now_pairing_request_cb_t cb)
 {
-    if (data_len == sizeof(esp_now_pairing_request_t) && ((esp_now_pairing_request_t *)data)->magicWord == ESP_NOW_PAIRING_MAGICWORD)
+    if (g_isPairing && data_len == sizeof(esp_now_pairing_request_t) && ((esp_now_pairing_request_t *)data)->magicWord == ESP_NOW_PAIRING_MAGICWORD)
     {
         esp_now_pairing_request_t *pairing_request = (esp_now_pairing_request_t *)data;
 
