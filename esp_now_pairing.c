@@ -113,7 +113,7 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
 
             while (xTaskGetTickCount() < scan_end_ticks)
             {
-                vTaskDelay(pdMS_TO_TICKS(1));
+                taskYIELD();
 
                 if (g_paired)
                     return true;
