@@ -49,7 +49,8 @@ bool esp_now_pairing_init(esp_now_peer_config_t *peer_config)
     return false;
 }
 
-bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, uint32_t clientProductCode, esp_now_pairing_response_cb_t response_cb, esp_now_pairing_scan_cb_t scan_cb )
+bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, uint32_t clientProductCode, esp_now_pairing_response_cb_t response_cb,
+                     esp_now_pairing_scan_cb_t scan_cb)
 {
     uint32_t start_ticks = xTaskGetTickCount();
 
@@ -86,13 +87,18 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
             ESP_ERROR_CHECK(esp_now_send(serverAddress, (uint8_t *)&pairing_request, sizeof(pairing_request)));
             ESP_ERROR_CHECK(esp_now_del_peer(peerInfo.peer_addr));
 
-            vTaskDelay(pdMS_TO_TICKS(100));
-
-            if (g_paired)
-                return true;
+            uint32_t scan_end_ticks = xTaskGetTickCount() + pdMS_TO_TICKS(100);
 
             if (scan_cb != NULL)
                 scan_cb();
+
+            while (xTaskGetTickCount() < scan_end_ticks)
+            {
+                vTaskDelay(pdMS_TO_TICKS(1));
+
+                if (g_paired)
+                    return true;
+            }
         }
     }
     return false;
@@ -141,7 +147,7 @@ void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const
 }
 
 bool esp_now_pairing_handler(const esp_now_recv_info_t *esp_now_info, const uint8_t *data, int data_len, uint32_t pairingCode, uint32_t serverProductCode,
-                            esp_now_pairing_request_cb_t cb)
+                             esp_now_pairing_request_cb_t cb)
 {
     if (data_len == sizeof(esp_now_pairing_request_t) && ((esp_now_pairing_request_t *)data)->magicWord == ESP_NOW_PAIRING_MAGICWORD)
     {
