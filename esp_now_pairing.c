@@ -92,7 +92,7 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
                 return true;
 
             if (scan_cb != NULL)
-                scan_cb();
+                scan_cb(channel);
         }
     }
     return false;

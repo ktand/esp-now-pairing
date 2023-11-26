@@ -38,7 +38,7 @@ extern "C"
     } esp_now_peer_config_t;
 
     typedef bool (*esp_now_pairing_request_cb_t)(esp_now_pairing_request_t *pairing_request);
-    typedef void (*esp_now_pairing_scan_cb_t)();
+    typedef void (*esp_now_pairing_scan_cb_t)(uint8_t channel);
     typedef bool (*esp_now_pairing_response_cb_t)(esp_now_pairing_response_t *pairing_response);
 
     bool esp_now_pairing_init(esp_now_peer_config_t *peer_config);
