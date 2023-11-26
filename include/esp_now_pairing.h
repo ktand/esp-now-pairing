@@ -50,6 +50,8 @@ extern "C"
     bool esp_now_pairing_is_pairing();
     void esp_now_pairing_abort();
 
+    esp_err_t esp_now_pairing_read_config(esp_now_peer_config_t *peer_config);
+
 #ifdef __cplusplus
 }
 #endif
