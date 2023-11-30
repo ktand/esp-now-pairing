@@ -178,7 +178,7 @@ void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const
 bool esp_now_pairing_handler(const esp_now_recv_info_t *esp_now_info, const uint8_t *data, int data_len, uint32_t pairingCode, uint32_t serverProductCode,
                              esp_now_pairing_request_cb_t cb)
 {
-    if (g_isPairing && data_len == sizeof(esp_now_pairing_request_t) && ((esp_now_pairing_request_t *)data)->magicWord == ESP_NOW_PAIRING_MAGICWORD)
+    if (data_len == sizeof(esp_now_pairing_request_t) && ((esp_now_pairing_request_t *)data)->magicWord == ESP_NOW_PAIRING_MAGICWORD)
     {
         esp_now_pairing_request_t *pairing_request = (esp_now_pairing_request_t *)data;
 
