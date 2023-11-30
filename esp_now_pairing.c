@@ -22,19 +22,55 @@ bool g_isPairing;
 
 void espnow_pairing_data_received(const esp_now_recv_info_t *esp_now_info, const uint8_t *data, int data_len);
 
-esp_err_t esp_now_pairing_write_config(esp_now_peer_config_t *peer_config);
-esp_err_t esp_now_pairing_read_config(esp_now_peer_config_t *peer_config);
-
-bool esp_now_pairing_init(esp_now_peer_config_t *peer_config)
+esp_err_t esp_now_pairing_write_config(esp_now_peer_config_t *peer_config)
 {
-    esp_err_t err = esp_now_pairing_read_config(peer_config);
+    nvs_handle_t handle;
+    esp_err_t err;
+
+    err = nvs_open(TAG, NVS_READWRITE, &handle);
+    if (err != ESP_OK)
+        return err;
+
+    err = nvs_set_blob(handle, NVS_KEY, peer_config, sizeof(esp_now_peer_config_t));
+    if (err != ESP_OK)
+    {
+        nvs_close(handle);
+        return err;
+    }
+
+    err = nvs_commit(handle);
+
+    nvs_close(handle);
+    return err;
+}
+
+esp_err_t esp_now_pairing_read_config(esp_now_peer_config_t *peer_config)
+{
+    nvs_handle_t handle;
+    esp_err_t err;
+    err = nvs_open(TAG, NVS_READWRITE, &handle);
+    if (err != ESP_OK)
+        return err;
+
+    size_t size = sizeof(esp_now_peer_config_t);
+
+    err = nvs_get_blob(handle, NVS_KEY, peer_config, &size);
 
     if (err == ESP_OK && peer_config->pairingCode != 0 && peer_config->channel != 0)
     {
         ESP_LOGI(TAG, "Peer config found: MAC = %02x:%02x:%02x:%02x:%02x:%02x, Channel = %d", MAC2STR(peer_config->macAddress), peer_config->channel);
         ESP_LOGI(TAG, "Product code: 0x%08lx", peer_config->pairingCode);
         ESP_LOGI(TAG, "Pairing code: 0x%08lx", peer_config->productCode);
+    }
 
+    nvs_close(handle);
+    return err;
+}
+
+bool esp_now_pairing_init(esp_now_peer_config_t *peer_config)
+{
+    if (peer_config->pairingCode != 0 && peer_config->channel != 0)
+    {
         ESP_ERROR_CHECK(esp_wifi_set_channel(peer_config->channel, WIFI_SECOND_CHAN_NONE));
 
         esp_now_peer_info_t peerInfo;
@@ -113,7 +149,7 @@ bool esp_now_pairing(TickType_t wait_ticks, esp_now_peer_config_t *peer_config, 
 
             while (xTaskGetTickCount() < scan_end_ticks)
             {
-                taskYIELD();
+                vTaskDelay(1);
 
                 if (g_paired)
                     return true;
@@ -213,42 +249,4 @@ bool esp_now_pairing_handler(const esp_now_recv_info_t *esp_now_info, const uint
         }
     }
     return false;
-}
-
-esp_err_t esp_now_pairing_write_config(esp_now_peer_config_t *peer_config)
-{
-    nvs_handle_t handle;
-    esp_err_t err;
-
-    err = nvs_open(TAG, NVS_READWRITE, &handle);
-    if (err != ESP_OK)
-        return err;
-
-    err = nvs_set_blob(handle, NVS_KEY, peer_config, sizeof(esp_now_peer_config_t));
-    if (err != ESP_OK)
-    {
-        nvs_close(handle);
-        return err;
-    }
-
-    err = nvs_commit(handle);
-
-    nvs_close(handle);
-    return err;
-}
-
-esp_err_t esp_now_pairing_read_config(esp_now_peer_config_t *peer_config)
-{
-    nvs_handle_t handle;
-    esp_err_t err;
-    err = nvs_open(TAG, NVS_READWRITE, &handle);
-    if (err != ESP_OK)
-        return err;
-
-    size_t size = sizeof(esp_now_peer_config_t);
-
-    err = nvs_get_blob(handle, NVS_KEY, peer_config, &size);
-
-    nvs_close(handle);
-    return err;
 }
